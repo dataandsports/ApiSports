@@ -1,0 +1,753 @@
+openapi: 3.0.0
+info:
+  title: API-FOOTBALL
+  version: 3.9.3
+  contact:
+    name: support
+    url: 'https://www.api-football.com'
+    email: https://dashboard.api-football.com
+  description: |
+    # Introduction
+
+    Welcome to Api-Football! You can use our API to access all API endpoints, which can get information about Football Leagues & Cups.
+
+    # Authentication
+
+    We uses API keys to allow access to the API.
+
+    **API-SPORTS** : https://v3.football.api-sports.io/
+
+    Our API expects for the API key to be included in all API requests to the server in a header:
+    > x-apisports-key: XxXxXxXxXxXxXxXxXxXxXxXx
+
+    # Changelog
+
+    ### 3.9.3
+    - Add endpoint `players/profiles`
+    - Add endpoint `players/teams`
+    - Endpoint `fixtures`: Add field `extra`, Add field `standings`
+    - Endpoint `fixtures/rounds`: Add `dates` parameter
+    - Endpoint `fixtures/statistics`: Add `half` parameter
+    - Endpoint `injuries`: Add `ids` parameter
+    - Endpoint `teams/statistics`: Add Goals Over/Under
+    - Endpoint `sidelined`: Add `players` and `coachs` parameters
+    - Endpoint `trophies`: Add `players` and `coachs` parameters
+
+    ### 3.9.2
+    - Endpoint `odds`: Add `odds/live`, Add `odds/live/bets`
+    - Endpoint `teams`: Add `code`, `venue` parameters; Add `teams/countries`
+    - Endpoint `fixtures`: Add `ids` parameter, multiple status, `venue` parameter
+    - Endpoint `fixtures/headtohead`: Add multiple status, `venue` parameter
+
+    ### 3.8.1
+    - Add endpoint `injuries`
+    - Add endpoint `players/squads`
+    - Add endpoint `players/topassists`, `players/topyellowcards`, `players/topredcards`
+    - Endpoint `fixtures/lineups`: Add grid positions, jersey colors
+    - Endpoint `fixtures/events`: Add VAR events
+    - Endpoint `teams`: Add tri-code
+    - Endpoint `teams/statistics`: More statistics added
+    - Add Coaches Photos
+
+servers:
+  - url: 'https://v3.football.api-sports.io'
+    description: API-SPORTS
+
+# =============================================================================
+# ENDPOINTS
+# =============================================================================
+
+paths:
+  /timezone:
+    get:
+      summary: Timezone
+      operationId: get-timezone
+      tags: [Timezone]
+      description: |
+        Get the list of available timezone to be used in the fixtures endpoint.
+        Does not require any parameters.
+        **Update Frequency**: Not updated (static list).
+        **Recommended Calls**: 1 call when you need.
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+
+  /countries:
+    get:
+      summary: Countries
+      operationId: get-countries
+      tags: [Countries]
+      description: |
+        Get the list of available countries for the `leagues` endpoint.
+        **Update Frequency**: Updated each time a new league from a new country is added.
+        **Recommended Calls**: 1 call per day.
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: name, in: query, schema: {type: string}}
+        - {name: code, in: query, schema: {type: string}}
+        - {name: search, in: query, schema: {type: string, minLength: 3}}
+
+  /leagues:
+    get:
+      summary: Leagues
+      operationId: get-leagues
+      tags: [Leagues]
+      description: |
+        Get the list of available leagues and cups. Returns coverage per competition/season.
+        **Update Frequency**: Updated several times a day.
+        **Recommended Calls**: 1 call per hour.
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: id, in: query, schema: {type: integer}}
+        - {name: name, in: query, schema: {type: string}}
+        - {name: country, in: query, schema: {type: string}}
+        - {name: code, in: query, schema: {type: string}}
+        - {name: season, in: query, schema: {type: integer, description: 'YYYY'}}
+        - {name: team, in: query, schema: {type: integer}}
+        - {name: type, in: query, schema: {type: string, enum: [league, cup]}}
+        - {name: current, in: query, schema: {type: string, enum: ['true', 'false']}}
+        - {name: search, in: query, schema: {type: string, minLength: 3}}
+        - {name: last, in: query, schema: {type: integer, maxLength: 2}}
+
+  /leagues/seasons:
+    get:
+      summary: Seasons
+      operationId: get-seasons
+      tags: [Leagues]
+      description: |
+        Get the list of all available seasons (4-digit year keys).
+        **Update Frequency**: Updated each time a new league is added.
+        **Recommended Calls**: 1 call per day.
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+
+  /teams:
+    get:
+      summary: Teams information
+      operationId: get-teams
+      tags: [Teams]
+      description: |
+        Get the list of available teams. Team IDs are unique and consistent across leagues.
+        Also returns venue information per team.
+        **Update Frequency**: Updated several times a week.
+        **Recommended Calls**: 1 call per day.
+        **Requires at least one parameter.**
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: id, in: query, schema: {type: integer}}
+        - {name: name, in: query, schema: {type: string}}
+        - {name: league, in: query, schema: {type: integer}}
+        - {name: season, in: query, schema: {type: integer}}
+        - {name: country, in: query, schema: {type: string}}
+        - {name: code, in: query, schema: {type: string, maxLength: 3}}
+        - {name: venue, in: query, schema: {type: integer}}
+        - {name: search, in: query, schema: {type: string, minLength: 3}}
+
+  /teams/statistics:
+    get:
+      summary: Teams statistics
+      operationId: get-teams-statistics
+      tags: [Teams]
+      description: |
+        Returns statistics for a team in a given competition and season.
+        Includes: form, fixtures played/won/drawn/lost, goals (for/against), biggest wins/losses,
+        clean sheets, failed to score, penalty stats, lineups, cards by minute.
+        Optional `date` parameter for stats up to a specific date.
+        **Update Frequency**: Updated twice a day.
+        **Recommended Calls**: 1 call per day (or per week if no fixtures today).
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: league, in: query, required: true, schema: {type: integer}}
+        - {name: season, in: query, required: true, schema: {type: integer}}
+        - {name: team, in: query, required: true, schema: {type: integer}}
+        - {name: date, in: query, schema: {type: string, pattern: 'YYYY-MM-DD'}}
+
+  /teams/seasons:
+    get:
+      summary: Teams seasons
+      operationId: get-teams-seasons
+      tags: [Teams]
+      description: |
+        Get the list of seasons available for a team.
+        **Update Frequency**: Updated several times a week.
+        **Recommended Calls**: 1 call per day.
+        **Requires at least one parameter.**
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: team, in: query, required: true, schema: {type: integer}}
+
+  /teams/countries:
+    get:
+      summary: Teams countries
+      operationId: get-teams-countries
+      tags: [Teams]
+      description: |
+        Get the list of countries available for the teams endpoint.
+        **Update Frequency**: Updated several times a week.
+        **Recommended Calls**: 1 call per day.
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+
+  /venues:
+    get:
+      summary: Venues
+      operationId: get-venues
+      tags: [Venues]
+      description: |
+        Get the list of available venues.
+        **Update Frequency**: Updated several times a week.
+        **Recommended Calls**: 1 call per day.
+        **Requires at least one parameter.**
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: id, in: query, schema: {type: integer}}
+        - {name: name, in: query, schema: {type: string}}
+        - {name: city, in: query, schema: {type: string}}
+        - {name: country, in: query, schema: {type: string}}
+        - {name: search, in: query, schema: {type: string, minLength: 3}}
+
+  /standings:
+    get:
+      summary: Standings
+      operationId: get-standings
+      tags: [Standings]
+      description: |
+        Get standings for a league or team. Some competitions have multiple rankings
+        (group phases, opening/closing rankings, etc.).
+        **Update Frequency**: Updated every hour.
+        **Recommended Calls**: 1 call per hour (in-progress leagues) or 1 call per day.
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: league, in: query, schema: {type: integer}}
+        - {name: season, in: query, required: true, schema: {type: integer}}
+        - {name: team, in: query, schema: {type: integer}}
+
+  /fixtures/rounds:
+    get:
+      summary: Rounds
+      operationId: get-fixtures-rounds
+      tags: [Fixtures]
+      description: |
+        Get the rounds for a league or cup.
+        Optional `dates` parameter returns dates of each round.
+        Optional `current` parameter returns only the current round.
+        **Update Frequency**: Updated every day.
+        **Recommended Calls**: 1 call per day.
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: league, in: query, required: true, schema: {type: integer}}
+        - {name: season, in: query, required: true, schema: {type: integer}}
+        - {name: current, in: query, schema: {type: boolean}}
+        - {name: dates, in: query, schema: {type: boolean}}
+        - {name: timezone, in: query, schema: {type: string}}
+
+  /fixtures:
+    get:
+      summary: Fixtures
+      operationId: get-fixtures
+      tags: [Fixtures]
+      description: |
+        Get fixtures. When called with a single fixture ID, also returns events, lineups,
+        statistics, and players in the response. Supports live fixtures via `live` parameter.
+
+        Available fixture statuses: TBD, NS, 1H, HT, 2H, ET, BT, P, SUSP, INT,
+        FT, AET, PEN, PST, CANC, ABD, AWD, WO, LIVE
+
+        **Update Frequency**: Updated every 15 seconds.
+        **Recommended Calls**: 1 call per minute (in-progress) or 1 call per day.
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: id, in: query, schema: {type: integer, description: 'Single fixture ID - also returns events/lineups/stats/players'}}
+        - {name: ids, in: query, schema: {type: string, description: 'Multiple fixture IDs (max 20), format: id-id-id'}}
+        - {name: live, in: query, schema: {type: string, description: 'all OR league-ids (e.g. 39-61)'}}
+        - {name: date, in: query, schema: {type: string, pattern: 'YYYY-MM-DD'}}
+        - {name: league, in: query, schema: {type: integer}}
+        - {name: season, in: query, schema: {type: integer}}
+        - {name: team, in: query, schema: {type: integer}}
+        - {name: last, in: query, schema: {type: integer, maxLength: 2}}
+        - {name: next, in: query, schema: {type: integer, maxLength: 2}}
+        - {name: from, in: query, schema: {type: string, pattern: 'YYYY-MM-DD'}}
+        - {name: to, in: query, schema: {type: string, pattern: 'YYYY-MM-DD'}}
+        - {name: round, in: query, schema: {type: string}}
+        - {name: status, in: query, schema: {type: string, description: 'One or more status codes e.g. NS-PST-FT'}}
+        - {name: venue, in: query, schema: {type: integer}}
+        - {name: timezone, in: query, schema: {type: string}}
+
+  /fixtures/headtohead:
+    get:
+      summary: Head To Head
+      operationId: get-fixtures-headtohead
+      tags: [Fixtures]
+      description: |
+        Get head-to-head results between two teams.
+        **Update Frequency**: Updated every 15 seconds.
+        **Recommended Calls**: 1 call per minute (in-progress) or 1 call per day.
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: h2h, in: query, required: true, schema: {type: string, pattern: 'ID-ID'}}
+        - {name: date, in: query, schema: {type: string}}
+        - {name: league, in: query, schema: {type: integer}}
+        - {name: season, in: query, schema: {type: integer}}
+        - {name: last, in: query, schema: {type: integer}}
+        - {name: next, in: query, schema: {type: integer}}
+        - {name: from, in: query, schema: {type: string}}
+        - {name: to, in: query, schema: {type: string}}
+        - {name: status, in: query, schema: {type: string}}
+        - {name: venue, in: query, schema: {type: integer}}
+        - {name: timezone, in: query, schema: {type: string}}
+
+  /fixtures/statistics:
+    get:
+      summary: Fixture Statistics
+      operationId: get-fixtures-statistics
+      tags: [Fixtures]
+      description: |
+        Get statistics for one fixture. Available stats: Shots on/off Goal, Total/Blocked Shots,
+        Shots inside/outside box, Fouls, Corner Kicks, Offsides, Ball Possession, Yellow/Red Cards,
+        Goalkeeper Saves, Total passes, Passes accurate, Passes %.
+        Optional `half` parameter returns 1st and 2nd half stats separately (from 2024 season).
+        **Update Frequency**: Updated every minute.
+        **Recommended Calls**: 1 call per minute (in-progress) or 1 call per day.
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: fixture, in: query, required: true, schema: {type: integer}}
+        - {name: team, in: query, schema: {type: integer}}
+        - {name: type, in: query, schema: {type: string}}
+        - {name: half, in: query, schema: {type: boolean}}
+
+  /fixtures/events:
+    get:
+      summary: Fixture Events
+      operationId: get-fixtures-events
+      tags: [Fixtures]
+      description: |
+        Get events from a fixture. Event types: Goal (Normal, Own Goal, Penalty, Missed Penalty),
+        Card (Yellow, Red), Subst (Substitution 1/2/3...), Var (Goal cancelled, Penalty confirmed).
+        VAR events available from 2020-2021 season.
+        **Update Frequency**: Updated every 15 seconds.
+        **Recommended Calls**: 1 call per minute (in-progress) or 1 call per day.
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: fixture, in: query, required: true, schema: {type: integer}}
+        - {name: team, in: query, schema: {type: integer}}
+        - {name: player, in: query, schema: {type: integer}}
+        - {name: type, in: query, schema: {type: string}}
+
+  /fixtures/lineups:
+    get:
+      summary: Fixture Lineups
+      operationId: get-fixtures-lineups
+      tags: [Fixtures]
+      description: |
+        Get lineups for a fixture. Available 20-40 minutes before kickoff when competition covers it.
+        Includes: Formation, Coach, Start XI (with grid positions), Substitutes, Jersey colors.
+        **Update Frequency**: Updated every 15 minutes.
+        **Recommended Calls**: 1 call per 15 minutes (in-progress) or 1 call per day.
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: fixture, in: query, required: true, schema: {type: integer}}
+        - {name: team, in: query, schema: {type: integer}}
+        - {name: player, in: query, schema: {type: integer}}
+        - {name: type, in: query, schema: {type: string}}
+
+  /fixtures/players:
+    get:
+      summary: Player statistics per fixture
+      operationId: get-fixtures-players
+      tags: [Fixtures]
+      description: |
+        Get player statistics for one fixture. Includes: minutes played, position, rating,
+        shots, goals, passes, tackles, duels, dribbles, fouls, cards, penalty stats.
+        **Update Frequency**: Updated every minute.
+        **Recommended Calls**: 1 call per minute (in-progress) or 1 call per day.
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: fixture, in: query, required: true, schema: {type: integer}}
+        - {name: team, in: query, schema: {type: integer}}
+
+  /injuries:
+    get:
+      summary: Injuries
+      operationId: get-injuries
+      tags: [Injuries]
+      description: |
+        Get players not participating in fixtures (injured, suspended).
+        Types: "Missing Fixture" or "Questionable".
+        Data available from April 2021.
+        **Update Frequency**: Updated every 4 hours.
+        **Recommended Calls**: 1 call per day.
+        **Requires at least one parameter.**
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: league, in: query, schema: {type: integer}}
+        - {name: season, in: query, schema: {type: integer, description: 'Required with league, team, or player'}}
+        - {name: fixture, in: query, schema: {type: integer}}
+        - {name: team, in: query, schema: {type: integer}}
+        - {name: player, in: query, schema: {type: integer}}
+        - {name: date, in: query, schema: {type: string, pattern: 'YYYY-MM-DD'}}
+        - {name: ids, in: query, schema: {type: string, description: 'Multiple fixture IDs (max 20)'}}
+        - {name: timezone, in: query, schema: {type: string}}
+
+  /predictions:
+    get:
+      summary: Predictions
+      operationId: get-predictions
+      tags: [Predictions]
+      description: |
+        Get predictions for a fixture using algorithms (Poisson distribution, team stats, H2H, etc.).
+        Not based on bookmaker odds. Includes win%, under/over goals, advice, comparison stats, H2H.
+        **Update Frequency**: Updated every hour.
+        **Recommended Calls**: 1 call per hour (in-progress) or 1 call per day.
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: fixture, in: query, required: true, schema: {type: integer}}
+
+  /coachs:
+    get:
+      summary: Coaches
+      operationId: get-coachs
+      tags: [Coachs]
+      description: |
+        Get all information about coaches and their careers.
+        **Update Frequency**: Updated every day.
+        **Recommended Calls**: 1 call per day.
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: id, in: query, schema: {type: integer}}
+        - {name: team, in: query, schema: {type: integer}}
+        - {name: search, in: query, schema: {type: string, minLength: 3}}
+
+  /players/seasons:
+    get:
+      summary: Player Seasons
+      operationId: get-players-seasons
+      tags: [Players]
+      description: |
+        Get all available seasons for players statistics.
+        **Update Frequency**: Updated every day.
+        **Recommended Calls**: 1 call per day.
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: player, in: query, schema: {type: integer}}
+
+  /players/profiles:
+    get:
+      summary: Player Profiles
+      operationId: get-players-profiles
+      tags: [Players]
+      description: |
+        Get the list of all available players (profile only, no stats).
+        Pagination: 250 results per page.
+        **Update Frequency**: Updated several times a week.
+        **Recommended Calls**: 1 call per week.
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: player, in: query, schema: {type: integer}}
+        - {name: search, in: query, schema: {type: string, minLength: 4}}
+        - {name: page, in: query, schema: {type: integer, default: 1}}
+
+  /players:
+    get:
+      summary: Player Statistics
+      operationId: get-players
+      tags: [Players]
+      description: |
+        Get player statistics. Stats calculated per team/league/season.
+        Includes: appearances, minutes, goals, assists, passes, tackles, duels, dribbles, cards, rating.
+        Pagination: 20 results per page.
+        **Update Frequency**: Updated several times a week.
+        **Recommended Calls**: 1 call per day.
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: id, in: query, schema: {type: integer}}
+        - {name: team, in: query, schema: {type: integer}}
+        - {name: league, in: query, schema: {type: integer}}
+        - {name: season, in: query, schema: {type: integer, description: 'Required with id, league, or team'}}
+        - {name: search, in: query, schema: {type: string, minLength: 4}}
+        - {name: page, in: query, schema: {type: integer, default: 1}}
+
+  /players/squads:
+    get:
+      summary: Team Squads / Player Teams
+      operationId: get-players-squads
+      tags: [Players]
+      description: |
+        Get current squad when using `team` param. Returns associated teams when using `player` param.
+        **Update Frequency**: Updated several times a week.
+        **Recommended Calls**: 1 call per week.
+        **Requires at least one parameter.**
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: team, in: query, schema: {type: integer}}
+        - {name: player, in: query, schema: {type: integer}}
+
+  /players/teams:
+    get:
+      summary: Player Career Teams
+      operationId: get-players-teams
+      tags: [Players]
+      description: |
+        Returns list of teams and seasons a player has played for during their career.
+        **Update Frequency**: Updated several times a week.
+        **Recommended Calls**: 1 call per week.
+        **Requires at least one parameter.**
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: player, in: query, required: true, schema: {type: integer}}
+
+  /players/topscorers:
+    get:
+      summary: Top Scorers
+      operationId: get-players-topscorers
+      tags: [Players]
+      description: |
+        Get the 20 best scorers for a league/cup in a season.
+        **Update Frequency**: Updated several times a week.
+        **Recommended Calls**: 1 call per day.
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: league, in: query, required: true, schema: {type: integer}}
+        - {name: season, in: query, required: true, schema: {type: integer}}
+
+  /players/topassists:
+    get:
+      summary: Top Assists
+      operationId: get-players-topassists
+      tags: [Players]
+      description: |
+        Get the 20 best assisters for a league/cup in a season.
+        **Update Frequency**: Updated several times a week.
+        **Recommended Calls**: 1 call per day.
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: league, in: query, required: true, schema: {type: integer}}
+        - {name: season, in: query, required: true, schema: {type: integer}}
+
+  /players/topyellowcards:
+    get:
+      summary: Top Yellow Cards
+      operationId: get-players-topyellowcards
+      tags: [Players]
+      description: |
+        Get the 20 players with most yellow cards for a league/cup in a season.
+        **Update Frequency**: Updated several times a week.
+        **Recommended Calls**: 1 call per day.
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: league, in: query, required: true, schema: {type: integer}}
+        - {name: season, in: query, required: true, schema: {type: integer}}
+
+  /players/topredcards:
+    get:
+      summary: Top Red Cards
+      operationId: get-players-topredcards
+      tags: [Players]
+      description: |
+        Get the 20 players with most red cards for a league/cup in a season.
+        **Update Frequency**: Updated several times a week.
+        **Recommended Calls**: 1 call per day.
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: league, in: query, required: true, schema: {type: integer}}
+        - {name: season, in: query, required: true, schema: {type: integer}}
+
+  /transfers:
+    get:
+      summary: Transfers
+      operationId: get-transfers
+      tags: [Transfers]
+      description: |
+        Get all available transfers for players and teams.
+        **Update Frequency**: Updated several times a week.
+        **Recommended Calls**: 1 call per day.
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: player, in: query, schema: {type: integer}}
+        - {name: team, in: query, schema: {type: integer}}
+
+  /trophies:
+    get:
+      summary: Trophies
+      operationId: get-trophies
+      tags: [Trophies]
+      description: |
+        Get all available trophies for a player or coach.
+        New `players` and `coachs` multi-ID parameters allow up to 20 IDs at once.
+        **Update Frequency**: Updated several times a week.
+        **Recommended Calls**: 1 call per day.
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: player, in: query, schema: {type: integer}}
+        - {name: players, in: query, schema: {type: string, description: 'Up to 20 player IDs, format: id-id-id'}}
+        - {name: coach, in: query, schema: {type: integer}}
+        - {name: coachs, in: query, schema: {type: string, description: 'Up to 20 coach IDs, format: id-id-id'}}
+
+  /sidelined:
+    get:
+      summary: Sidelined
+      operationId: get-sidelined
+      tags: [Sidelined]
+      description: |
+        Get all sidelined records (injuries, suspensions) for a player or coach.
+        New `players` and `coachs` multi-ID parameters allow up to 20 IDs at once.
+        **Update Frequency**: Updated several times a week.
+        **Recommended Calls**: 1 call per day.
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: player, in: query, schema: {type: integer}}
+        - {name: players, in: query, schema: {type: string, description: 'Up to 20 player IDs'}}
+        - {name: coach, in: query, schema: {type: integer}}
+        - {name: coachs, in: query, schema: {type: string, description: 'Up to 20 coach IDs'}}
+
+  /odds/live:
+    get:
+      summary: Live In-Play Odds
+      operationId: get-odds-live
+      tags: [Odds (In-Play)]
+      description: |
+        Returns in-play odds for fixtures currently in progress.
+        Fixtures added 5-15 minutes before kickoff; removed 5-20 minutes after final whistle.
+        No history stored.
+        **Update Frequency**: Updated every 5 seconds (range: 5-60 seconds).
+        **Recommended Calls**: As needed for live fixtures.
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: fixture, in: query, schema: {type: integer}}
+        - {name: league, in: query, schema: {type: integer}}
+        - {name: bet, in: query, schema: {type: integer}}
+
+  /odds/live/bets:
+    get:
+      summary: Live Bet Types
+      operationId: get-live-bets
+      tags: [Odds (In-Play)]
+      description: |
+        Get all available bet types for in-play odds (137 types).
+        Bet IDs here are NOT compatible with the pre-match /odds endpoint.
+        **Update Frequency**: Updated every 60 seconds.
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: id, in: query, schema: {type: string}}
+        - {name: search, in: query, schema: {type: string, minLength: 3}}
+
+  /odds:
+    get:
+      summary: Pre-Match Odds
+      operationId: get-odds
+      tags: [Odds (Pre-Match)]
+      description: |
+        Get pre-match odds from fixtures, leagues, or dates.
+        Available 1-14 days before fixture; 7-day history kept.
+        Pagination: 10 results per page.
+        **Update Frequency**: Updated every 3 hours.
+        **Recommended Calls**: 1 call every 3 hours.
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: fixture, in: query, schema: {type: integer}}
+        - {name: league, in: query, schema: {type: integer}}
+        - {name: season, in: query, schema: {type: integer}}
+        - {name: date, in: query, schema: {type: string, pattern: 'YYYY-MM-DD'}}
+        - {name: timezone, in: query, schema: {type: string}}
+        - {name: page, in: query, schema: {type: integer, default: 1}}
+        - {name: bookmaker, in: query, schema: {type: integer}}
+        - {name: bet, in: query, schema: {type: integer}}
+
+  /odds/mapping:
+    get:
+      summary: Odds Mapping
+      operationId: get-odds-mapping
+      tags: [Odds (Pre-Match)]
+      description: |
+        Get list of available fixture IDs for the odds endpoint.
+        Pagination: 100 results per page.
+        **Update Frequency**: Updated every day.
+        **Recommended Calls**: 1 call per day.
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: page, in: query, schema: {type: integer, default: 1}}
+
+  /odds/bookmakers:
+    get:
+      summary: Bookmakers
+      operationId: get-bookmakers
+      tags: [Odds (Pre-Match)]
+      description: |
+        Get all available bookmakers. Bookmaker IDs can be used as filters in /odds.
+        **Update Frequency**: Updated several times a week.
+        **Recommended Calls**: 1 call per day.
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: id, in: query, schema: {type: integer}}
+        - {name: search, in: query, schema: {type: string, minLength: 3}}
+
+  /odds/bets:
+    get:
+      summary: Pre-Match Bet Types
+      operationId: get-odds-bets
+      tags: [Odds (Pre-Match)]
+      description: |
+        Get all available bet types for pre-match odds.
+        Bet IDs here are NOT compatible with /odds/live endpoint.
+        **Update Frequency**: Updated several times a week.
+        **Recommended Calls**: 1 call per day.
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: id, in: query, schema: {type: string}}
+        - {name: search, in: query, schema: {type: string, minLength: 3}}
+
+# =============================================================================
+# ENDPOINT SUMMARY (for quick reference)
+# =============================================================================
+#
+# CATEGORY            ENDPOINT                    UPDATE FREQ    NOTES
+# ─────────────────────────────────────────────────────────────────────────────
+# Reference/Lookup
+#   Timezone          /timezone                   static
+#   Countries         /countries                  rare
+#   Leagues           /leagues                    several/day    includes coverage map
+#   Seasons           /leagues/seasons            rare
+#   Teams             /teams                      several/week   includes venue
+#   Teams Countries   /teams/countries            several/week
+#   Teams Seasons     /teams/seasons              several/week
+#   Venues            /venues                     several/week
+#   Coaches           /coachs                     daily
+#
+# Match Data
+#   Rounds            /fixtures/rounds            daily
+#   Fixtures          /fixtures                   15 seconds     live support; single ID returns full detail
+#   Head to Head      /fixtures/headtohead        15 seconds
+#   Standings         /standings                  hourly
+#
+# In-Game Data
+#   Events            /fixtures/events            15 seconds     goals, cards, subs, VAR
+#   Lineups           /fixtures/lineups           15 minutes     available 20-40min before KO
+#   Fixture Stats     /fixtures/statistics        1 minute       team-level; optional half-time split
+#   Fixture Players   /fixtures/players           1 minute       player-level per fixture
+#
+# Season-Level
+#   Teams Stats       /teams/statistics           twice/day
+#   Injuries          /injuries                   4 hours        from April 2021
+#   Predictions       /predictions                hourly
+#
+# Player Data
+#   Player Seasons    /players/seasons            daily
+#   Player Profiles   /players/profiles           several/week   no stats; 250/page
+#   Player Stats      /players                    several/week   20/page
+#   Squads            /players/squads             several/week
+#   Career Teams      /players/teams              several/week
+#   Top Scorers       /players/topscorers         several/week
+#   Top Assists       /players/topassists         several/week
+#   Top Yellow Cards  /players/topyellowcards     several/week
+#   Top Red Cards     /players/topredcards        several/week
+#   Transfers         /transfers                  several/week   soccer-specific
+#   Trophies          /trophies                   several/week   soccer-specific
+#   Sidelined         /sidelined                  several/week
+#
+# Odds (In-Play)
+#   Live Odds         /odds/live                  5 seconds      no history; current fixtures only
+#   Live Bet Types    /odds/live/bets             60 seconds
+#
+# Odds (Pre-Match)
+#   Pre-Match Odds    /odds                       3 hours        7-day history; 10/page
+#   Odds Mapping      /odds/mapping               daily          fixture ID list for odds
+#   Bookmakers        /odds/bookmakers            several/week
+#   Pre-Match Bets    /odds/bets                  several/week
