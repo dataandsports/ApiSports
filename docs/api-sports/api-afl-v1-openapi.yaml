@@ -1,0 +1,420 @@
+openapi: 3.0.0
+info:
+  version: 1.2.4
+  title: API-AFL
+  description: |
+    # Introduction
+
+    Welcome to Api-AFL! API for Australian Football League data.
+
+    **API-SPORTS** : https://v1.afl.api-sports.io/
+
+    Authentication header: x-apisports-key
+
+servers:
+  - url: 'https://v1.afl.api-sports.io'
+    description: API-SPORTS
+
+# =============================================================================
+# ENDPOINTS
+# =============================================================================
+
+paths:
+  /timezone:
+    get:
+      summary: Timezone
+      operationId: get-timezone
+      tags: [Timezone]
+      description: |
+        Get the list of available timezones for use in the `games` and `odds` endpoints.
+        Does not require any parameters.
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+
+  /seasons:
+    get:
+      summary: Seasons
+      operationId: get-seasons
+      tags: [Seasons]
+      description: |
+        Return the list of all available seasons (4-digit year keys).
+        All seasons can be used in other endpoints as parameters.
+        Does not require any parameters.
+        Example data: 2011 through 2023.
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+
+  /leagues:
+    get:
+      summary: Leagues
+      operationId: get-leagues
+      tags: [Leagues]
+      description: |
+        Get the list of available leagues. Only one league exists: AFL Premiership (id=1).
+        Returns: id, name, logo, season, start date, end date, current flag.
+        Parameters can be combined.
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: id, in: query, schema: {type: integer}}
+        - {name: season, in: query, schema: {type: integer, description: 'YYYY'}}
+        - {name: current, in: query, schema: {type: string, enum: ['true', 'false']}}
+        - {name: timezone, in: query, schema: {type: string}}
+
+  /teams:
+    get:
+      summary: Teams
+      operationId: get-teams
+      tags: [Teams]
+      description: |
+        Return a list of available AFL teams. 18 teams total.
+        Returns: id, name, logo.
+        Updated every day. Can be called without parameters to get all teams.
+        Teams: Adelaide Crows, Brisbane Lions, Carlton Blues, Collingwood Magpies,
+        Essendon Bombers, Fremantle Dockers, Geelong Cats, Hawthorn Hawks,
+        Melbourne Demons, North Melbourne Kangaroos, Port Adelaide Power,
+        Richmond Tigers, St Kilda Saints, Sydney Swans, West Coast Eagles,
+        Western Bulldogs, Gold Coast Suns, Greater Western Sydney Giants.
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: id, in: query, schema: {type: integer}}
+        - {name: name, in: query, schema: {type: string}}
+        - {name: league, in: query, schema: {type: integer, description: 'Requires season'}}
+        - {name: season, in: query, schema: {type: integer, description: 'Requires league'}}
+        - {name: search, in: query, schema: {type: string, minLength: 3}}
+
+  /teams/statistics:
+    get:
+      summary: Team Statistics (Season Level)
+      operationId: get-teams-statistics
+      tags: [Teams]
+      description: |
+        Return team statistics for a given season.
+        Requires: id (team), season.
+        Updated every day.
+
+        AFL-specific statistics returned:
+        - games.played
+        - disposals: disposals (total/avg), kicks (total/avg), handballs (total/avg), free_kicks (total/avg)
+        - stoppages: hitouts (total/avg), clearances (total/avg)
+        - marks: total/avg
+        - scoring: goals (total/avg), assists (total/avg), behinds (total/avg)
+        - defence: tackles (total/avg)
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: id, in: query, required: true, schema: {type: integer}}
+        - {name: season, in: query, required: true, schema: {type: integer}}
+
+  /players:
+    get:
+      summary: Players
+      operationId: get-players
+      tags: [Players]
+      description: |
+        Return a list of available players (profile only, no statistics).
+        Returns: id, name.
+        Requires at least one of: id, team, name, search.
+        Updated every day.
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: id, in: query, schema: {type: integer}}
+        - {name: name, in: query, schema: {type: string}}
+        - {name: team, in: query, schema: {type: integer, description: 'Requires season'}}
+        - {name: season, in: query, schema: {type: integer, description: 'Requires team'}}
+        - {name: search, in: query, schema: {type: string, minLength: 3}}
+
+  /players/statistics:
+    get:
+      summary: Player Statistics (Season Level)
+      operationId: get-players-statistics
+      tags: [Players]
+      description: |
+        Return statistics for a player for a given season.
+        Requires: id, season.
+        Updated every day.
+
+        AFL-specific statistics returned:
+        - games.played
+        - goals: total (total/avg), assists (total/avg)
+        - behinds: total/avg
+        - disposals: total/avg
+        - kicks: total/avg
+        - handballs: total/avg
+        - marks: total/avg
+        - tackles: total/avg
+        - hitouts: total/avg
+        - clearances: total/avg
+        - free_kicks: for (total/avg), against (total/avg)
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: id, in: query, schema: {type: integer}}
+        - {name: season, in: query, schema: {type: integer}}
+
+  /games:
+    get:
+      summary: Games
+      operationId: get-games
+      tags: [Games]
+      description: |
+        Return the list of games. Equivalent to /fixtures in the soccer API.
+        Updated every 30 seconds.
+
+        Available statuses:
+        - NS: Not Started
+        - Q1: 1st Quarter, Q2: 2nd Quarter, Q3: 3rd Quarter, Q4: 4th Quarter
+        - QT: Quarter Time
+        - ER: End Of Regulation
+        - FT: Full Time
+        - HT: Half Time
+        - CANC: Cancelled
+        - PST: Postponed
+
+        Returns: game id, league, date, time, timestamp, timezone, round (null), week,
+        venue (nullable), attendance (nullable), status, home/away teams with scores.
+        Score format: total score, goals, behinds, psgoals (penalty shootout), psbehinds.
+
+        Requires at least one of: id, date, league, season, team.
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: id, in: query, schema: {type: integer}}
+        - {name: date, in: query, schema: {type: string, pattern: 'YYYY-MM-DD'}}
+        - {name: league, in: query, schema: {type: integer, description: 'Requires season'}}
+        - {name: season, in: query, schema: {type: integer, description: 'Requires league'}}
+        - {name: team, in: query, schema: {type: integer, description: 'Requires season'}}
+        - {name: timezone, in: query, schema: {type: string}}
+
+  /games/quarters:
+    get:
+      summary: Quarter Scores (AFL-specific)
+      operationId: get-games-quarters
+      tags: [Games]
+      description: |
+        Return team scores by quarter for one or several game IDs.
+        AFL-SPECIFIC: No soccer equivalent.
+        Updated every 30 seconds.
+
+        Returns cumulative scores at end of each quarter (Q1 through Q4):
+        goals, behinds, total points per team per quarter.
+
+        Requires at least one of: id, ids, date.
+        ids format: id-id-id (max 10 games).
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: id, in: query, schema: {type: integer}}
+        - {name: ids, in: query, schema: {type: string, description: 'Max 10 game IDs, format: id-id-id'}}
+        - {name: date, in: query, schema: {type: string, pattern: 'YYYY-MM-DD'}}
+        - {name: timezone, in: query, schema: {type: string}}
+
+  /games/events:
+    get:
+      summary: Game Events
+      operationId: get-games-events
+      tags: [Games]
+      description: |
+        Return the list of events (scoring plays) for one or several games.
+        Equivalent to /fixtures/events in soccer API (but AFL-specific event types).
+        Updated every 30 seconds.
+
+        Returns: game id, events array with:
+        - team.id, player.id, period (quarter: 1-4), minute, type (goal|behind)
+
+        Note: AFL events are simpler than soccer — only goals and behinds (no cards, subs, VAR).
+
+        Requires at least one of: id, ids, date.
+        ids format: id-id-id (max 10 games).
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: id, in: query, schema: {type: integer}}
+        - {name: ids, in: query, schema: {type: string, description: 'Max 10 game IDs'}}
+        - {name: date, in: query, schema: {type: string, pattern: 'YYYY-MM-DD'}}
+        - {name: timezone, in: query, schema: {type: string}}
+
+  /games/statistics/teams:
+    get:
+      summary: Team Statistics Per Game
+      operationId: get-games-statistics-teams
+      tags: [Games]
+      description: |
+        Return team statistics for one or several games.
+        Equivalent to /fixtures/statistics in soccer API.
+        Updated every 30 seconds.
+
+        AFL-specific statistics per game per team:
+        - disposals: disposals, kicks, handballs, free_kicks
+        - stoppages: hitouts, clearances
+        - marks
+        - scoring: goals, assists, behinds
+        - defence: tackles
+
+        Requires at least one of: id, ids, date.
+        ids format: id-id-id (max 10 games).
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: id, in: query, schema: {type: integer}}
+        - {name: ids, in: query, schema: {type: string, description: 'Max 10 game IDs'}}
+        - {name: date, in: query, schema: {type: string, pattern: 'YYYY-MM-DD'}}
+        - {name: timezone, in: query, schema: {type: string}}
+
+  /games/statistics/players:
+    get:
+      summary: Player Statistics Per Game
+      operationId: get-games-statistics-players
+      tags: [Games]
+      description: |
+        Return player statistics for one or several games.
+        Equivalent to /fixtures/players in soccer API.
+        Updated every 30 seconds.
+
+        AFL-specific statistics per player per game:
+        - goals: total, assists
+        - behinds
+        - disposals, kicks, handballs
+        - marks
+        - tackles
+        - hitouts
+        - clearances
+        - free_kicks: for, against
+
+        Requires at least one of: id, ids, date.
+        ids format: id-id-id (max 10 games).
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: id, in: query, schema: {type: integer}}
+        - {name: ids, in: query, schema: {type: string, description: 'Max 10 game IDs'}}
+        - {name: date, in: query, schema: {type: string, pattern: 'YYYY-MM-DD'}}
+        - {name: timezone, in: query, schema: {type: string}}
+
+  /standings:
+    get:
+      summary: Standings
+      operationId: get-standings
+      tags: [Standings]
+      description: |
+        Return standings for a competition and season.
+        Updated every hour.
+        Requires: league, season.
+
+        Returns: position, team (id/name/logo), pts, games (played/win/drawn/lost),
+        points (for/against), last_5 form string.
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: league, in: query, required: true, schema: {type: integer}}
+        - {name: season, in: query, required: true, schema: {type: integer}}
+        - {name: team, in: query, schema: {type: integer}}
+
+  /odds:
+    get:
+      summary: Pre-Match Odds
+      operationId: get-odds
+      tags: [Odds]
+      description: |
+        Return odds for games.
+        Pre-match odds available 1-7 days before game. 7-day history kept.
+        Updated four times a day.
+        Requires: game (id).
+
+        Note: 39 bet types available (see /odds/bets).
+        14 bookmakers available (see /odds/bookmakers).
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: game, in: query, required: true, schema: {type: integer}}
+        - {name: bookmaker, in: query, schema: {type: integer}}
+        - {name: bet, in: query, schema: {type: integer}}
+
+  /odds/bets:
+    get:
+      summary: Bet Types
+      operationId: get-odds-bets
+      tags: [Odds]
+      description: |
+        Return the list of available bet types for odds.
+        39 bet types available including: Home/Away, Asian Handicap, Over/Under,
+        quarter-by-quarter results, first scoring play, etc.
+        Can be called without parameters.
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: id, in: query, schema: {type: integer}}
+        - {name: search, in: query, schema: {type: string, minLength: 3}}
+
+  /odds/bookmakers:
+    get:
+      summary: Bookmakers
+      operationId: get-odds-bookmakers
+      tags: [Odds]
+      description: |
+        Return the list of available bookmakers.
+        14 bookmakers: NordicBet, WilliamHill, bet365, Marathon, Unibet,
+        Betsson, 1xbet, Betway, Betcris, 888Sport, bwin, Sbo, Sportingbet, Pncl.
+        Can be called without parameters.
+      parameters:
+        - {name: x-apisports-key, in: header, required: true, schema: {type: string}}
+        - {name: id, in: query, schema: {type: integer}}
+        - {name: search, in: query, schema: {type: string, minLength: 3}}
+
+# =============================================================================
+# ENDPOINT SUMMARY (for quick reference)
+# =============================================================================
+#
+# CATEGORY            ENDPOINT                        UPDATE FREQ    SOCCER EQUIVALENT
+# ──────────────────────────────────────────────────────────────────────────────────────
+# Reference
+#   Timezone          /timezone                       static         /timezone
+#   Seasons           /seasons                        rare           /leagues/seasons
+#   Leagues           /leagues                        rare           /leagues
+#   Teams             /teams                          daily          /teams
+#
+# Season-Level Stats
+#   Team Stats        /teams/statistics               daily          /teams/statistics
+#   Player List       /players                        daily          /players (partial)
+#   Player Stats      /players/statistics             daily          /players (includes stats)
+#
+# Match Data
+#   Games             /games                          30 seconds     /fixtures
+#   Quarter Scores    /games/quarters                 30 seconds     NO EQUIVALENT (AFL-only)
+#   Standings         /standings                      hourly         /standings
+#
+# In-Game Data
+#   Events            /games/events                   30 seconds     /fixtures/events
+#   Game Team Stats   /games/statistics/teams         30 seconds     /fixtures/statistics
+#   Game Player Stats /games/statistics/players       30 seconds     /fixtures/players
+#
+# Odds
+#   Odds              /odds                           4x/day         /odds
+#   Bet Types         /odds/bets                      rarely         /odds/bets
+#   Bookmakers        /odds/bookmakers                rarely         /odds/bookmakers
+#
+# =============================================================================
+# WHAT AFL DOES NOT HAVE (soccer-only)
+# =============================================================================
+#
+# - /countries                  (not needed - one country)
+# - /venues                     (no venue data in AFL API)
+# - /fixtures/rounds            (uses week numbers instead)
+# - /fixtures/headtohead        (no H2H endpoint)
+# - /fixtures/lineups           (no lineup data)
+# - /injuries                   (no injury data)
+# - /predictions                (no predictions)
+# - /coachs                     (no coach data)
+# - /players/profiles           (basic profile in /players)
+# - /players/squads             (use /players?team&season instead)
+# - /players/teams              (no career history)
+# - /players/topscorers         (no leaderboard endpoints)
+# - /players/topassists         (no leaderboard endpoints)
+# - /players/topyellowcards     (no cards in AFL)
+# - /players/topredcards        (no cards in AFL)
+# - /transfers                  (no transfer data)
+# - /trophies                   (no trophy data)
+# - /sidelined                  (no injury/suspension tracking)
+# - /odds/live                  (no live in-play odds)
+# - /odds/mapping               (no odds mapping endpoint)
+# - /teams/seasons              (no dedicated teams/seasons endpoint)
+# - /teams/countries            (irrelevant - all Australian)
+#
+# =============================================================================
+# AFL-SPECIFIC (no soccer equivalent)
+# =============================================================================
+#
+# - /games/quarters             Quarter-by-quarter scoring breakdown
+# - AFL scoring units: goals (6pts) and behinds (1pt), distinct from soccer
+# - AFL game stats: disposals, kicks, handballs, hitouts, clearances, marks
+# - Update cadence: 30 seconds (vs 15 seconds for soccer fixtures)
+# - Rate limit: 7,500 req/day (Pro plan) vs 75,000 req/day (Ultra plan for soccer)
